@@ -1,29 +1,27 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import json
-import os
 import time
 import uuid
+import requests
 
 app = Flask(__name__)
 CORS(app)
 
-WISHES_FILE = "wishes.json"
-
-def load_wishes():
-    if not os.path.exists(WISHES_FILE):
-        return []
-    with open(WISHES_FILE, "r") as f:
-        return json.load(f)
-
-def save_wishes(wishes):
-    with open(WISHES_FILE, "w") as f:
-        json.dump(wishes, f, indent=2)
+SUPABASE_URL = "https://ekumdprtrzvhirhbvjtv.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdW1kcHJ0cnp2aGlyaGJ2anR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4MjgwMTMsImV4cCI6MjA5NjQwNDAxM30.fsRaMesUaD1OoDgd7tvU8R6yAklhKDxsRcyOpXiJz4s"
+HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json"
+}
 
 @app.route("/wishes", methods=["GET"])
 def get_wishes():
-    wishes = load_wishes()
-    return jsonify(sorted(wishes, key=lambda w: w["ts"], reverse=True)[:50])
+    res = requests.get(
+        f"{SUPABASE_URL}/rest/v1/wishes?order=ts.desc&limit=50",
+        headers=HEADERS
+    )
+    return jsonify(res.json()), res.status_code
 
 @app.route("/wishes", methods=["POST"])
 def post_wish():
@@ -44,10 +42,13 @@ def post_wish():
         "message": message,
         "ts": int(time.time() * 1000)
     }
-    wishes = load_wishes()
-    wishes.append(wish)
-    save_wishes(wishes)
-    return jsonify(wish), 201
+    res = requests.post(
+        f"{SUPABASE_URL}/rest/v1/wishes",
+        headers={**HEADERS, "Prefer": "return=representation"},
+        json=wish
+    )
+    return jsonify(res.json()), res.status_code
 
 if __name__ == "__main__":
     app.run(debug=False)
+    
